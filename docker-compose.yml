@@ -8,3 +8,11 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+
+  nuvio-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: nuvio-cloudflared
+    command: tunnel --no-autoupdate --url http://nuvio-addon:7000
+    depends_on:
+      - nuvio-addon
+    restart: unless-stopped

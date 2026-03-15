@@ -2561,6 +2561,33 @@
         let currentManifestUrlToCopy = defaultManifestUrl;
         let currentInstallUrl = defaultInstallProtocolUrl;
 
+        function fallbackCopyText(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.setAttribute('readonly', '');
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            textArea.setSelectionRange(0, text.length);
+            let copied = false;
+            try {
+                copied = document.execCommand('copy');
+            } catch (e) {
+                copied = false;
+            }
+            document.body.removeChild(textArea);
+            return copied;
+        }
+
+        async function copyTextToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+            return fallbackCopyText(text);
+        }
+
         if (installLink) {
             installLink.href = currentInstallUrl; // Set initial href
 
@@ -2592,7 +2619,8 @@
                 });
 
                 try {
-                    await navigator.clipboard.writeText(currentManifestUrlToCopy);
+                    const copied = await copyTextToClipboard(currentManifestUrlToCopy);
+                    if (!copied) throw new Error('copy_failed');
                     if (currentManifestUrlToCopy === defaultManifestUrl) {
                         toast.innerHTML = "Default manifest copied!<br>Note: ShowBox streams are limited to &lt;9GB. Use a personal cookie for full access.";
                         setTimeout(() => { toast.classList.remove('show'); }, 5000); // Longer display
@@ -2603,7 +2631,8 @@
                     toast.classList.add('show');
                 } catch (err) {
                     console.error('Failed to copy manifest: ', err);
-                    toast.textContent = "Failed to copy link.";
+                    window.prompt('Copy this manifest URL manually:', currentManifestUrlToCopy);
+                    toast.textContent = "Clipboard blocked. Use manual copy prompt.";
                     toast.classList.add('show');
                     setTimeout(() => { toast.classList.remove('show'); }, 3000);
                 }
@@ -3087,8 +3116,9 @@
             const configureUrl = `${window.location.origin}/${pathString}configure`;
 
             // Set the URLs for use
-            currentManifestUrlToCopy = newPathManifestURL; // Prefer Android-compatible URL for copying
-            currentInstallUrl = `stremio://${newPathManifestURL.replace(/^https?:\/\//, '')}`;
+            // Prefer query-based URLs for best client compatibility (including Stremio desktop)
+            currentManifestUrlToCopy = newQueryManifestURL;
+            currentInstallUrl = `stremio://${newQueryManifestURL.replace(/^https?:\/\//, '')}`;
             if (installLink) installLink.href = currentInstallUrl;
 
             // Update the configure link if it exists
@@ -3099,7 +3129,7 @@
             }
 
             if (manifestPersonalized) {
-                personalManifestUrlSpan.textContent = newPathManifestURL;
+                personalManifestUrlSpan.textContent = newQueryManifestURL;
                 manifestResult.style.display = 'block';
                 toast.textContent = "Personalized manifest URL updated!";
             } else {
@@ -3964,13 +3994,15 @@
             copyKoyebManifestBtn.addEventListener('click', async () => {
                 if (!koyebManifestOutput.value) return;
                 try {
-                    await navigator.clipboard.writeText(koyebManifestOutput.value);
+                    const copied = await copyTextToClipboard(koyebManifestOutput.value);
+                    if (!copied) throw new Error('copy_failed');
                     toast.textContent = 'New Koyeb manifest URL copied!';
                     toast.classList.add('show');
                     setTimeout(() => { toast.classList.remove('show'); }, 3000);
                 } catch (err) {
                     console.error('Failed to copy Koyeb manifest: ', err);
-                    toast.textContent = 'Failed to copy new URL.';
+                    window.prompt('Copy this URL manually:', koyebManifestOutput.value);
+                    toast.textContent = 'Clipboard blocked. Use manual copy prompt.';
                     toast.classList.add('show');
                     setTimeout(() => { toast.classList.remove('show'); }, 3000);
                 }
